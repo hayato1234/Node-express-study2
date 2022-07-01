@@ -1,12 +1,9 @@
 var createError = require("http-errors");
 var express = require("express");
 var path = require("path");
-var cookieParser = require("cookie-parser");
 var logger = require("morgan");
-const session = require("express-session");
-const FileStore = require("session-file-store")(session);
 const passport = require("passport");
-const authenticate = require("./authenticate");
+const config = require("./config");
 
 var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
@@ -15,7 +12,7 @@ const promotionRouter = require("./routes/promotionRouter");
 const partnerRouter = require("./routes/partnerRouter");
 
 const mongoose = require("mongoose");
-const url = "mongodb://localhost:27017/numcampsite";
+const url = config.mongoUrl;
 const connect = mongoose.connect(url, {
   useCreateIndex: true,
   useFindAndModify: false,
@@ -37,46 +34,11 @@ app.set("view engine", "jade");
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-// app.use(cookieParser("12345-6989-0123123897"));
-app.use(
-  session({
-    name: "session-id",
-    secret: "12345-6989-0123123897",
-    saveUninitialized: false,
-    resave: false,
-    store: new FileStore(),
-  })
-);
 
 app.use(passport.initialize());
-app.use(passport.session());
 
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
-
-//↓auth
-function auth(req, res, next) {
-  console.log(req.user);
-
-  if (!req.user) {
-    // const authHeader = req.headers.authorization;
-    const err = new Error("You are not authenticated!");
-    // res.setHeader("WWW-Authenticate", "Basic");
-    err.status = 401;
-    return next(err);
-  } else {
-    return next();
-    // if (req.session.user === "authenticated") {
-    //   return next();
-    // } else {
-    //   const err = new Error("You are not authenticated!");
-    //   res.setHeader("WWW-Authenticate", "Basic");
-    //   err.status = 401;
-    //   return next(err);
-    // }
-  }
-}
-app.use(auth);
 
 //↓making localhost:3000 equal = path.join(__dirname, "public")
 app.use(express.static(path.join(__dirname, "public")));
