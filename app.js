@@ -3,6 +3,10 @@ var express = require("express");
 var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
+const session = require("express-session");
+const FileStore = require("session-file-store")(session);
+const passport = require("passport");
+const authenticate = require("./authenticate");
 
 var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
@@ -33,32 +37,43 @@ app.set("view engine", "jade");
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+// app.use(cookieParser("12345-6989-0123123897"));
+app.use(
+  session({
+    name: "session-id",
+    secret: "12345-6989-0123123897",
+    saveUninitialized: false,
+    resave: false,
+    store: new FileStore(),
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.use("/", indexRouter);
+app.use("/users", usersRouter);
 
 //↓auth
 function auth(req, res, next) {
-  console.log(req.headers);
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    const err = new Error("You are not authenticated!");
-    res.setHeader("WWW-Authenticate", "Basic");
-    err.status = 401;
-    return next(err);
-  }
+  console.log(req.user);
 
-  //Buffer: global in node, no need to require
-  const auth = Buffer.from(authHeader.split(" ")[1], "base64")
-    .toString()
-    .split(":");
-  const user = auth[0];
-  const pass = auth[1];
-  if (user === "admin" && pass === "password") {
-    return next(); // authorized
-  } else {
+  if (!req.user) {
+    // const authHeader = req.headers.authorization;
     const err = new Error("You are not authenticated!");
-    res.setHeader("WWW-Authenticate", "Basic");
+    // res.setHeader("WWW-Authenticate", "Basic");
     err.status = 401;
     return next(err);
+  } else {
+    return next();
+    // if (req.session.user === "authenticated") {
+    //   return next();
+    // } else {
+    //   const err = new Error("You are not authenticated!");
+    //   res.setHeader("WWW-Authenticate", "Basic");
+    //   err.status = 401;
+    //   return next(err);
+    // }
   }
 }
 app.use(auth);
@@ -66,8 +81,6 @@ app.use(auth);
 //↓making localhost:3000 equal = path.join(__dirname, "public")
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use("/", indexRouter);
-app.use("/users", usersRouter);
 app.use("/campsites", campsiteRouter);
 app.use("/promotions", promotionRouter);
 app.use("/partners", partnerRouter);
