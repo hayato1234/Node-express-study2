@@ -6,8 +6,30 @@ const authenticate = require("../authenticate");
 const router = express.Router();
 
 /* GET users listing. */
-router.get("/", function (req, res, next) {
-  res.send("respond with a resource");
+// router.get("/", function (req, res, next) {
+//   if (req.user.admin) {
+//     User.find()
+//       .then((users) => {
+//         res.statusCode = 200;
+//         res.setHeader("Content-Type", "application/json");
+//         res.json(users);
+//       })
+//       .catch((err) => next(err));
+//   } else {
+//     res.statusCode = 403;
+//     res.end("You are not authorized to perform this operation!");
+//   }
+// });
+
+router.get("/", authenticate.verifyUser, async function (req, res, next) {
+  if (req.user.admin) {
+    const users = await User.find().exec();
+    return res.send(users);
+  } else {
+    res
+      .status(403)
+      .json({ message: "You are not authorized to perform this operation!" });
+  }
 });
 
 router.post("/signup", (req, res) => {
