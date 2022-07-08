@@ -5,6 +5,12 @@ var logger = require("morgan");
 const passport = require("passport");
 const config = require("./config");
 
+//added for google
+const google = require("googleapis").google;
+const OAuth2 = google.auth.OAuth2;
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+
 var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
 const campsiteRouter = require("./routes/campsiteRouter");
@@ -52,6 +58,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use(passport.initialize());
+app.use(cookieParser());
 
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
@@ -63,6 +70,59 @@ app.use("/campsites", campsiteRouter);
 app.use("/promotions", promotionRouter);
 app.use("/partners", partnerRouter);
 app.use("/imageUpload", uploadRouter);
+
+//↓ ------------------ for google auth --------------------------------------------
+app.get("/auth_callback", function (req, res) {
+  // Create an OAuth2 client object from the credentials in our config file
+  const oauth2Client = new OAuth2(
+    config.oauth2Credentials.client_id,
+    config.oauth2Credentials.client_secret,
+    config.oauth2Credentials.redirect_uris[0]
+  );
+  if (req.query.error) {
+    // The user did not give us permission.
+    return res.redirect("/");
+  } else {
+    oauth2Client.getToken(req.query.code, function (err, token) {
+      if (err) return res.redirect("/");
+
+      // Store the credentials given by google into a jsonwebtoken in a cookie called 'jwt'
+      res.cookie("jwt", jwt.sign(token, config.JWTsecret));
+      return res.redirect("/get_some_data");
+    });
+  }
+});
+
+app.get("/get_some_data", function (req, res) {
+  if (!req.cookies.jwt) {
+    // We haven't logged in
+    return res.redirect("/");
+  }
+  // Create an OAuth2 client object from the credentials in our config file
+  const oauth2Client = new OAuth2(
+    config.oauth2Credentials.client_id,
+    config.oauth2Credentials.client_secret,
+    config.oauth2Credentials.redirect_uris[0]
+  );
+  // Add this specific user's credentials to our OAuth2 client
+  oauth2Client.credentials = jwt.verify(req.cookies.jwt, config.JWTsecret);
+  // Get the youtube service
+  const service = google.youtube("v3");
+  // Get five of the user's subscriptions (the channels they're subscribed to)
+  service.subscriptions
+    .list({
+      auth: oauth2Client,
+      mine: true,
+      part: "snippet,contentDetails",
+      maxResults: 5,
+    })
+    .then((response) => {
+      // Render the data view, passing the subscriptions to it
+      return res.render("data", { subscriptions: response.data.items });
+    });
+});
+
+//↑ ------------------ for google auth --------------------------------------------
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

@@ -1,0 +1,7 @@
+extends layout
+
+block content
+    h1= "Your YouTube subscriptions"
+    ul
+        each item in subscriptions
+            li=item.snippet.title
