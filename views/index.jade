@@ -1,5 +1,11 @@
-extends layout
+//- extends layout
+script.
+  var something = function() {
+    console.log('something')
+  }
 
 block content
   h1= title
   p Welcome to #{title}
+  a(href='google.com') Google
+  button(onclick='something()') Click
